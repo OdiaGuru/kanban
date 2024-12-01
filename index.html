@@ -1,0 +1,805 @@
+<html>
+    <title>Intelligent Kanban Board</title>
+    <!-- Include Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Include Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha384-8aVlugaYTyFwv8AulHPpvOPZWq2yWZ0rPc7D5ZC1O2bhXfzdVjdDn5Zr6o9rjC5c" crossorigin="anonymous" />
+    <!-- Include shadcn CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shadcn/ui@latest/dist/style.css" />
+    <!-- Custom Styles -->
+    <style>
+        /* Custom scrollbar styles */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 5px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 5px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        /* Modal Styles */
+        #modal, #aiPromptModal, #settingsModal, #profileModal {
+            z-index: 50;
+        }
+        .shadcn-input input, .shadcn-input textarea, .shadcn-input select {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+        }
+        .shadcn-input label {
+            display: block;
+            margin-bottom: 0.25rem;
+            color: #4b5563;
+        }
+        .shadcn-button {
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-weight: medium;
+        }
+        .shadcn-button.primary {
+            background-color: #3b82f6;
+            color: white;
+        }
+        .shadcn-button.secondary {
+            background-color: #e5e7eb;
+            color: #1f2937;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- Navigation Bar -->
+    <nav class="bg-white shadow">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center">
+                    <img src="logo.png" alt="Kanban Logo" class="h-8 w-8 mr-2">
+                    <span class="font-bold text-xl text-blue-600">Kanban AI</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button onclick="openSettings()" class="text-gray-600 hover:text-blue-600" title="Settings">
+                        <i class="fas fa-cog text-xl"></i>
+                    </button>
+                    <button onclick="openProfile()" class="text-gray-600 hover:text-blue-600" title="Profile">
+                        <i class="fas fa-user-circle text-xl"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+    <!-- Search and Filter -->
+    <div class="flex flex-col md:flex-row justify-between items-center mx-4 md:mx-0 mt-4 mb-4 space-y-2 md:space-y-0">
+        <!-- Search Bar -->
+        <div class="w-full md:w-1/3">
+            <input id="taskSearch" type="text" placeholder="Search tasks..." class="w-full border rounded p-1" oninput="filterTasks()" />
+        </div>
+        <!-- Label Filters -->
+        <div class="w-full md:w-2/3 flex flex-wrap space-x-2">
+            <button class="bg-gray-200 px-2 py-1 rounded text-sm" onclick="filterByLabel('')">All</button>
+            <div id="labelFilters" class="flex flex-wrap space-x-2"></div>
+        </div>
+    </div>
+    <!-- Main Content -->
+    <div class="flex flex-col md:flex-row justify-center mt-4 mx-4 md:mx-0">
+        <!-- Sidebar -->
+        <div class="md:w-1/6 bg-white rounded-lg shadow-md p-4 mb-6 md:mb-0 md:mr-6">
+            <h2 class="text-xl font-semibold mb-4">Projects</h2>
+            <ul class="space-y-2">
+                <li><button onclick="switchProject('Project Alpha')" class="w-full text-left py-2 px-3 rounded hover:bg-gray-100">Project Alpha</button></li>
+                <li><button onclick="switchProject('Project Beta')" class="w-full text-left py-2 px-3 rounded hover:bg-gray-100">Project Beta</button></li>
+                <li><button onclick="switchProject('Project Gamma')" class="w-full text-left py-2 px-3 rounded hover:bg-gray-100">Project Gamma</button></li>
+                <li><button onclick="addProject()" class="w-full text-left py-2 px-3 rounded text-blue-600 hover:bg-gray-100">+ Add Project</button></li>
+            </ul>
+        </div>
+        <!-- Kanban Board -->
+        <div class="flex-1 flex space-x-6 overflow-x-auto custom-scrollbar px-2">
+            <!-- Backlog Column -->
+            <div class="flex-shrink-0 w-80 bg-white rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold text-center p-4 border-b">Backlog</h2>
+                <div id="backlog" class="p-4 space-y-4 min-h-[500px] bg-gray-50 rounded-b-lg overflow-y-auto custom-scrollbar" ondragover="allowDrop(event)" ondrop="drop(event, 'backlog')">
+                    <!-- Tasks will be added here -->
+                </div>
+                <div class="p-4">
+                    <button onclick="addTask('backlog')" class="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600"><i class="fas fa-plus mr-2"></i>Add Task</button>
+                </div>
+            </div>
+            <!-- In Progress Column -->
+            <div class="flex-shrink-0 w-80 bg-white rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold text-center p-4 border-b">In Progress</h2>
+                <div id="in-progress" class="p-4 space-y-4 min-h-[500px] bg-gray-50 rounded-b-lg overflow-y-auto custom-scrollbar" ondragover="allowDrop(event)" ondrop="drop(event, 'in-progress')">
+                    <!-- Tasks will be added here -->
+                </div>
+                <div class="p-4">
+                    <button onclick="addTask('in-progress')" class="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600"><i class="fas fa-plus mr-2"></i>Add Task</button>
+                </div>
+            </div>
+            <!-- Review Column -->
+            <div class="flex-shrink-0 w-80 bg-white rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold text-center p-4 border-b">Review</h2>
+                <div id="review" class="p-4 space-y-4 min-h-[500px] bg-gray-50 rounded-b-lg overflow-y-auto custom-scrollbar" ondragover="allowDrop(event)" ondrop="drop(event, 'review')">
+                    <!-- Tasks will be added here -->
+                </div>
+                <div class="p-4">
+                    <button onclick="addTask('review')" class="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600"><i class="fas fa-plus mr-2"></i>Add Task</button>
+                </div>
+            </div>
+            <!-- Completed Column -->
+            <div class="flex-shrink-0 w-80 bg-white rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold text-center p-4 border-b">Completed</h2>
+                <div id="completed" class="p-4 space-y-4 min-h-[500px] bg-gray-50 rounded-b-lg overflow-y-auto custom-scrollbar" ondragover="allowDrop(event)" ondrop="drop(event, 'completed')">
+                    <!-- Tasks will be added here -->
+                </div>
+                <div class="p-4">
+                    <button onclick="addTask('completed')" class="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600"><i class="fas fa-plus mr-2"></i>Add Task</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Footer -->
+    <div class="text-center mt-6">
+        <button onclick="generateAITask()" class="bg-green-500 text-white py-2 px-6 rounded hover:bg-green-600"><i class="fas fa-magic mr-2"></i>Generate AI Task Suggestion</button>
+    </div>
+    <!-- Modals -->
+    <!-- Add Task Modal using shadcn components -->
+    <div id="modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden">
+        <div class="bg-white rounded-lg w-11/12 md:w-1/3 shadow-lg">
+            <div class="p-4 border-b flex justify-between items-center">
+                <h3 class="text-lg font-semibold">Add Task</h3>
+                <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-4 space-y-4">
+                <div class="shadcn-input">
+                    <input id="taskTitle" type="text" required />
+                    <label>Task Title</label>
+                </div>
+                <div class="shadcn-textarea">
+                    <textarea id="taskDescription" required></textarea>
+                    <label>Task Description</label>
+                </div>
+                <div class="shadcn-select">
+                    <select id="taskPriority">
+                        <option value="Low">Low</option>
+                        <option value="Medium" selected>Medium</option>
+                        <option value="High">High</option>
+                    </select>
+                    <label>Priority</label>
+                </div>
+                <div class="shadcn-input">
+                    <input id="taskAssignee" type="text" />
+                    <label>Assign to</label>
+                </div>
+                <div class="shadcn-input">
+                    <input id="taskDueDate" type="date" />
+                    <label>Due Date</label>
+                </div>
+                <!-- Task Labels -->
+                <div class="shadcn-input">
+                    <input id="taskLabels" type="text" placeholder="e.g., frontend, bug, urgent" />
+                    <label>Labels (comma-separated)</label>
+                </div>
+                <!-- Task Attachments -->
+                <div class="shadcn-input">
+                    <input id="taskAttachments" type="file" multiple />
+                    <label>Attachments</label>
+                </div>
+                <div>
+                    <h4 class="text-lg font-semibold">Comments</h4>
+                    <div id="commentsSection" class="space-y-2 max-h-48 overflow-y-auto">
+                        <!-- Comments will be dynamically added here -->
+                    </div>
+                    <div class="flex items-center space-x-2 mt-2">
+                        <input id="commentInput" type="text" class="flex-1 shadcn-input-field" placeholder="Add a comment..." />
+                        <button onclick="addComment()" class="shadcn-button primary">Add</button>
+                    </div>
+                </div>
+                <div>
+                    <label for="taskDependencies" class="block mb-1">Dependencies</label>
+                    <select id="taskDependencies" class="shadcn-select-field" multiple>
+                        <!-- Options will be populated dynamically -->
+                    </select>
+                </div>
+            </div>
+            <div class="flex justify-end p-4 border-t space-x-2">
+                <button onclick="closeModal()" class="shadcn-button secondary">Cancel</button>
+                <button onclick="saveTask()" class="shadcn-button primary">Add Task</button>
+            </div>
+        </div>
+    </div>
+    <!-- AI Prompt Modal -->
+    <div id="aiPromptModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden">
+        <div class="bg-white rounded-lg w-11/12 md:w-1/3 shadow-lg">
+            <div class="p-4 border-b flex justify-between items-center">
+                <h3 class="text-lg font-semibold">AI Task Generation</h3>
+                <button onclick="closeAIPromptModal()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-4 space-y-4">
+                <textarea id="aiTaskDescription" class="shadcn-textarea-field" placeholder="Describe your project goals..."></textarea>
+            </div>
+            <div class="flex justify-end p-4 border-t space-x-2">
+                <button onclick="closeAIPromptModal()" class="shadcn-button secondary">Cancel</button>
+                <button onclick="submitAIPrompt()" class="shadcn-button primary">Generate Tasks</button>
+            </div>
+        </div>
+    </div>
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden">
+        <div class="bg-white rounded-lg w-11/12 md:w-1/3">
+            <div class="p-4 border-b flex justify-between items-center">
+                <h3 class="text-lg font-semibold">Settings</h3>
+                <button onclick="closeSettings()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-4 space-y-4">
+                <div>
+                    <label for="themeSelect" class="block mb-1">Theme</label>
+                    <select id="themeSelect" class="w-full border rounded p-2" onchange="changeTheme()">
+                        <option value="light" selected>Light</option>
+                        <option value="dark">Dark</option>
+                    </select>
+                </div>
+                <div class="flex items-center">
+                    <input id="aiSuggestionsToggle" type="checkbox" class="mr-2" checked>
+                    <label for="aiSuggestionsToggle">Enable AI Task Suggestions</label>
+                </div>
+            </div>
+            <div class="flex justify-end p-4 border-t">
+                <button onclick="closeSettings()" class="bg-blue-500 text-white py-1 px-4 rounded hover:bg-blue-600">Save</button>
+            </div>
+        </div>
+    </div>
+    <!-- Profile Modal -->
+    <div id="profileModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden">
+        <div class="bg-white rounded-lg w-11/12 md:w-1/3">
+            <div class="p-4 border-b flex justify-between items-center">
+                <h3 class="text-lg font-semibold">Profile</h3>
+                <button onclick="closeProfile()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-4 space-y-4">
+                <div class="flex items-center space-x-4">
+                    <img src="user-avatar.png" alt="User Avatar" class="w-16 h-16 rounded-full">
+                    <div>
+                        <h4 class="text-xl font-semibold" id="profileName">John Doe</h4>
+                        <p class="text-gray-600" id="profileEmail">john.doe@example.com</p>
+                    </div>
+                </div>
+                <div>
+                    <button onclick="logout()" class="w-full bg-red-500 text-white py-2 rounded hover:bg-red-600">Logout</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Include JavaScript for functionality -->
+    <script>
+        let draggedTask = null;
+        let currentColumn = '';
+        let currentProject = 'Project Alpha';
+        let tasks = {};
+
+        function initializeBoard() {
+            if (!tasks[currentProject]) {
+                tasks[currentProject] = {
+                    'backlog': [],
+                    'in-progress': [],
+                    'review': [],
+                    'completed': []
+                };
+
+                let sampleTasks = [
+                    {
+                        id: 'task-' + new Date().getTime(),
+                        title: 'Setup Environment',
+                        description: 'Install necessary tools and setup development environment.',
+                        priority: 'High',
+                        assignee: 'Alice',
+                        dueDate: '2023-10-15',
+                        labels: ['setup', 'environment'],
+                        attachments: [],
+                        comments: []
+                    },
+                    {
+                        id: 'task-' + (new Date().getTime() + 1),
+                        title: 'Design Landing Page',
+                        description: 'Create wireframes and design the landing page UI.',
+                        priority: 'Medium',
+                        assignee: 'Bob',
+                        dueDate: '2023-10-18',
+                        labels: ['design', 'UI'],
+                        attachments: [],
+                        comments: []
+                    },
+                    {
+                        id: 'task-' + (new Date().getTime() + 2),
+                        title: 'Implement Authentication',
+                        description: 'Develop user signup and login features.',
+                        priority: 'High',
+                        assignee: 'Charlie',
+                        dueDate: '2023-10-20',
+                        labels: ['backend', 'authentication'],
+                        attachments: [],
+                        comments: []
+                    },
+                    {
+                        id: 'task-' + (new Date().getTime() + 3),
+                        title: 'Set Up Database',
+                        description: 'Configure the database and create necessary schemas.',
+                        priority: 'Medium',
+                        assignee: 'Dana',
+                        dueDate: '2023-10-22',
+                        labels: ['database'],
+                        attachments: [],
+                        comments: []
+                    },
+                    {
+                        id: 'task-' + (new Date().getTime() + 4),
+                        title: 'Write Tests',
+                        description: 'Write unit and integration tests for existing features.',
+                        priority: 'Low',
+                        assignee: 'Eve',
+                        dueDate: '2023-10-25',
+                        labels: ['testing'],
+                        attachments: [],
+                        comments: []
+                    }
+                ];
+
+                sampleTasks.forEach((taskData, index) => {
+                    let columnId = 'backlog';
+                    if (index === 1) columnId = 'in-progress';
+                    else if (index === 2) columnId = 'review';
+                    else if (index >= 3) columnId = 'completed';
+                    tasks[currentProject][columnId].push(taskData);
+                    createTaskElement(taskData, columnId);
+                });
+            } else {
+                ['backlog', 'in-progress', 'review', 'completed'].forEach(columnId => {
+                    let column = document.getElementById(columnId);
+                    column.innerHTML = '';
+                    tasks[currentProject][columnId].forEach(taskData => {
+                        createTaskElement(taskData, columnId);
+                    });
+                });
+            }
+            populateLabelFilters();
+        }
+
+        function addTask(columnId) {
+            currentColumn = columnId;
+            document.getElementById('modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.add('hidden');
+            clearTaskModalFields();
+        }
+
+        function clearTaskModalFields() {
+            document.getElementById('taskTitle').value = '';
+            document.getElementById('taskDescription').value = '';
+            document.getElementById('taskPriority').value = 'Medium';
+            document.getElementById('taskAssignee').value = '';
+            document.getElementById('taskDueDate').value = '';
+            document.getElementById('taskLabels').value = '';
+            document.getElementById('taskAttachments').value = '';
+            document.getElementById('commentInput').value = '';
+            document.getElementById('taskDependencies').selectedIndex = -1;
+        }
+
+        function saveTask() {
+            let title = document.getElementById('taskTitle').value.trim();
+            let description = document.getElementById('taskDescription').value.trim();
+            let priority = document.getElementById('taskPriority').value;
+            let assignee = document.getElementById('taskAssignee').value.trim();
+            let dueDate = document.getElementById('taskDueDate').value;
+            let labelsInput = document.getElementById('taskLabels').value.trim();
+            let labels = labelsInput ? labelsInput.split(',').map(label => label.trim()) : [];
+            let attachmentsInput = document.getElementById('taskAttachments');
+            let attachments = Array.from(attachmentsInput.files).map(file => {
+                return {
+                    name: file.name,
+                    url: URL.createObjectURL(file)
+                };
+            });
+
+            if (title !== '') {
+                let taskData = {
+                    id: 'task-' + new Date().getTime(),
+                    title: title,
+                    description: description,
+                    priority: priority,
+                    assignee: assignee,
+                    dueDate: dueDate,
+                    dependencies: [],
+                    labels: labels,
+                    attachments: attachments,
+                    comments: []
+                };
+                tasks[currentProject][currentColumn].push(taskData);
+                createTaskElement(taskData, currentColumn);
+                closeModal();
+                populateLabelFilters();
+            }
+        }
+
+        function createTaskElement(taskData, columnId) {
+            let task = document.createElement("div");
+            task.className = "bg-white p-4 rounded shadow cursor-pointer space-y-2";
+            task.draggable = true;
+            task.id = taskData.id;
+
+            let header = document.createElement("div");
+            header.className = "flex justify-between items-center";
+
+            let title = document.createElement("h4");
+            title.textContent = taskData.title;
+            title.className = "text-lg font-semibold";
+
+            let priorityBadge = document.createElement("span");
+            priorityBadge.className = `px-2 py-1 rounded text-white text-xs ${getPriorityColor(taskData.priority)}`;
+            priorityBadge.textContent = taskData.priority;
+
+            header.appendChild(title);
+            header.appendChild(priorityBadge);
+
+            let description = document.createElement("p");
+            description.textContent = taskData.description;
+            description.className = "text-gray-700";
+
+            let footer = document.createElement("div");
+            footer.className = "flex justify-between items-center text-sm text-gray-600";
+
+            let assignee = document.createElement("div");
+            assignee.innerHTML = `<i class="fas fa-user mr-1"></i>${taskData.assignee || 'Unassigned'}`;
+
+            let dueDate = document.createElement("div");
+            dueDate.innerHTML = `<i class="fas fa-calendar-alt mr-1"></i>${taskData.dueDate || 'No due date'}`;
+
+            footer.appendChild(assignee);
+            footer.appendChild(dueDate);
+
+            // Display Labels
+            if (taskData.labels && taskData.labels.length > 0) {
+                let labelsDiv = document.createElement('div');
+                labelsDiv.className = 'flex flex-wrap mt-2';
+                taskData.labels.forEach(label => {
+                    let labelSpan = document.createElement('span');
+                    labelSpan.className = 'bg-gray-200 text-gray-800 text-xs px-2 py-1 rounded mr-2 mt-1';
+                    labelSpan.textContent = label;
+                    labelsDiv.appendChild(labelSpan);
+                });
+                task.appendChild(labelsDiv);
+            }
+
+            // Display Attachments
+            if (taskData.attachments && taskData.attachments.length > 0) {
+                let attachmentsDiv = document.createElement('div');
+                attachmentsDiv.className = 'mt-2 text-sm';
+                attachmentsDiv.innerHTML = '<strong>Attachments:</strong>';
+                taskData.attachments.forEach(file => {
+                    let attachmentLink = document.createElement('a');
+                    attachmentLink.href = file.url;
+                    attachmentLink.textContent = file.name;
+                    attachmentLink.className = 'block text-blue-600 hover:underline';
+                    attachmentLink.target = '_blank';
+                    attachmentsDiv.appendChild(attachmentLink);
+                });
+                task.appendChild(attachmentsDiv);
+            }
+
+            let controls = document.createElement("div");
+            controls.className = "flex justify-end space-x-2 mt-2";
+
+            let editButton = document.createElement("button");
+            editButton.innerHTML = `<i class="fas fa-edit"></i>`;
+            editButton.className = "text-blue-500 hover:text-blue-600";
+            editButton.onclick = () => editTask(taskData.id);
+
+            let deleteButton = document.createElement("button");
+            deleteButton.innerHTML = `<i class="fas fa-trash-alt"></i>`;
+            deleteButton.className = "text-red-500 hover:text-red-600";
+            deleteButton.onclick = () => deleteTask(taskData.id);
+
+            controls.appendChild(editButton);
+            controls.appendChild(deleteButton);
+
+            task.appendChild(header);
+            task.appendChild(description);
+            task.appendChild(footer);
+            task.appendChild(controls);
+
+            document.getElementById(columnId).appendChild(task);
+
+            task.addEventListener('dragstart', () => {
+                draggedTask = task;
+                task.classList.add('opacity-50');
+            });
+
+            task.addEventListener('dragend', () => {
+                draggedTask = null;
+                task.classList.remove('opacity-50');
+            });
+        }
+
+        function getPriorityColor(priority) {
+            switch (priority) {
+                case 'High':
+                    return 'bg-red-500';
+                case 'Medium':
+                    return 'bg-yellow-500';
+                case 'Low':
+                    return 'bg-green-500';
+                default:
+                    return 'bg-gray-500';
+            }
+        }
+
+        function editTask(taskId) {
+            let taskData = null;
+            let columnId = '';
+            for (let col in tasks[currentProject]) {
+                let index = tasks[currentProject][col].findIndex(t => t.id === taskId);
+                if (index !== -1) {
+                    taskData = tasks[currentProject][col][index];
+                    columnId = col;
+                    break;
+                }
+            }
+            if (taskData) {
+                document.getElementById('taskTitle').value = taskData.title;
+                document.getElementById('taskDescription').value = taskData.description;
+                document.getElementById('taskPriority').value = taskData.priority;
+                document.getElementById('taskAssignee').value = taskData.assignee;
+                document.getElementById('taskDueDate').value = taskData.dueDate;
+                document.getElementById('taskLabels').value = taskData.labels.join(', ');
+                let dependenciesSelect = document.getElementById('taskDependencies');
+                dependenciesSelect.innerHTML = '';
+                let allTasks = getAllTasks();
+                allTasks.forEach(task => {
+                    if (task.id !== taskId) {
+                        let option = document.createElement('option');
+                        option.value = task.id;
+                        option.textContent = task.title;
+                        dependenciesSelect.appendChild(option);
+                    }
+                });
+                displayComments(taskData.comments || []);
+                document.getElementById('modal').classList.remove('hidden');
+            }
+        }
+
+        function deleteTask(taskId) {
+            for (let col in tasks[currentProject]) {
+                let index = tasks[currentProject][col].findIndex(t => t.id === taskId);
+                if (index !== -1) {
+                    tasks[currentProject][col].splice(index, 1);
+                    break;
+                }
+            }
+            document.getElementById(taskId).remove();
+        }
+
+        function allowDrop(ev) {
+            ev.preventDefault();
+        }
+
+        function drop(ev, columnId) {
+            ev.preventDefault();
+            if (draggedTask) {
+                document.getElementById(columnId).appendChild(draggedTask);
+                let taskId = draggedTask.id;
+                for (let col in tasks[currentProject]) {
+                    let index = tasks[currentProject][col].findIndex(t => t.id === taskId);
+                    if (index !== -1) {
+                        let taskData = tasks[currentProject][col][index];
+                        tasks[currentProject][col].splice(index, 1);
+                        tasks[currentProject][columnId].push(taskData);
+                        break;
+                    }
+                }
+            }
+        }
+
+        function addComment() {
+            let commentText = document.getElementById('commentInput').value.trim();
+            if (commentText !== '') {
+                let taskData = getCurrentTaskData();
+                if (!taskData.comments) {
+                    taskData.comments = [];
+                }
+                taskData.comments.push({
+                    author: 'Current User',
+                    text: commentText,
+                    timestamp: new Date().toISOString()
+                });
+                displayComments(taskData.comments);
+                document.getElementById('commentInput').value = '';
+            }
+        }
+
+        function displayComments(comments) {
+            let commentsSection = document.getElementById('commentsSection');
+            commentsSection.innerHTML = '';
+            comments.forEach(comment => {
+                let commentDiv = document.createElement('div');
+                commentDiv.className = 'border-b pb-2';
+                commentDiv.innerHTML = `
+                    <strong>${comment.author}</strong>
+                    <span class="text-gray-600 text-xs"> ${new Date(comment.timestamp).toLocaleString()}</span>
+                    <p>${comment.text}</p>
+                `;
+                commentsSection.appendChild(commentDiv);
+            });
+        }
+
+        function generateAITask() {
+            document.getElementById('aiPromptModal').classList.remove('hidden');
+        }
+
+        function closeAIPromptModal() {
+            document.getElementById('aiPromptModal').classList.add('hidden');
+            document.getElementById('aiTaskDescription').value = '';
+        }
+
+        function submitAIPrompt() {
+            let description = document.getElementById('aiTaskDescription').value.trim();
+            if (description !== '') {
+                let aiTasks = simulateAITaskGeneration(description);
+                aiTasks.forEach(taskTitle => {
+                    let taskData = {
+                        id: 'task-' + new Date().getTime(),
+                        title: taskTitle,
+                        description: '',
+                        priority: 'Medium',
+                        assignee: '',
+                        dueDate: '',
+                        dependencies: [],
+                        labels: [],
+                        attachments: [],
+                        comments: []
+                    };
+                    tasks[currentProject]['backlog'].push(taskData);
+                    createTaskElement(taskData, 'backlog');
+                });
+                closeAIPromptModal();
+            }
+        }
+
+        function simulateAITaskGeneration(description) {
+            let tasks = [];
+            if (description.toLowerCase().includes('frontend')) {
+                tasks.push('Design UI Mockups');
+                tasks.push('Implement Responsive Layout');
+            }
+            if (description.toLowerCase().includes('backend')) {
+                tasks.push('Set Up Database Schema');
+                tasks.push('Implement API Endpoints');
+            }
+            if (tasks.length === 0) {
+                tasks.push(`Research on ${description}`);
+                tasks.push(`Implement features for ${description}`);
+            }
+            return tasks;
+        }
+
+        function openSettings() {
+            document.getElementById('settingsModal').classList.remove('hidden');
+        }
+
+        function closeSettings() {
+            document.getElementById('settingsModal').classList.add('hidden');
+        }
+
+        function openProfile() {
+            document.getElementById('profileModal').classList.remove('hidden');
+        }
+
+        function closeProfile() {
+            document.getElementById('profileModal').classList.add('hidden');
+        }
+
+        function logout() {
+            alert('Logged out successfully!');
+        }
+
+        function changeTheme() {
+            if (document.getElementById('themeSelect').value === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        }
+
+        function switchProject(projectName) {
+            currentProject = projectName;
+            initializeBoard();
+        }
+
+        function addProject() {
+            let projectName = prompt('Enter new project name:');
+            if (projectName) {
+                let projectList = document.querySelector('nav ul');
+                let newProjectItem = document.createElement('li');
+                newProjectItem.innerHTML = `<button onclick="switchProject('${projectName}')" class="w-full text-left py-2 px-3 rounded hover:bg-gray-100">${projectName}</button>`;
+                projectList.insertBefore(newProjectItem, projectList.lastElementChild);
+                tasks[projectName] = {
+                    'backlog': [],
+                    'in-progress': [],
+                    'review': [],
+                    'completed': []
+                };
+                switchProject(projectName);
+            }
+        }
+
+        function filterTasks() {
+            let searchTerm = document.getElementById('taskSearch').value.toLowerCase();
+            ['backlog', 'in-progress', 'review', 'completed'].forEach(columnId => {
+                let tasksInColumn = document.getElementById(columnId).children;
+                for (let task of tasksInColumn) {
+                    let title = task.querySelector('h4').textContent.toLowerCase();
+                    let description = task.querySelector('p').textContent.toLowerCase();
+                    if (title.includes(searchTerm) || description.includes(searchTerm)) {
+                        task.style.display = '';
+                    } else {
+                        task.style.display = 'none';
+                    }
+                }
+            });
+        }
+
+        function filterByLabel(label) {
+            ['backlog', 'in-progress', 'review', 'completed'].forEach(columnId => {
+                let tasksInColumn = document.getElementById(columnId).children;
+                for (let task of tasksInColumn) {
+                    if (label === '') {
+                        task.style.display = '';
+                    } else {
+                        let labels = Array.from(task.querySelectorAll('.bg-gray-200')).map(labelSpan => labelSpan.textContent);
+                        if (labels.includes(label)) {
+                            task.style.display = '';
+                        } else {
+                            task.style.display = 'none';
+                        }
+                    }
+                }
+            });
+        }
+
+        function populateLabelFilters() {
+            let labelsSet = new Set();
+            for (let col in tasks[currentProject]) {
+                tasks[currentProject][col].forEach(taskData => {
+                    if (taskData.labels) {
+                        taskData.labels.forEach(label => {
+                            labelsSet.add(label);
+                        });
+                    }
+                });
+            }
+            let labelFiltersDiv = document.getElementById('labelFilters');
+            labelFiltersDiv.innerHTML = '';
+            labelsSet.forEach(label => {
+                let labelButton = document.createElement('button');
+                labelButton.className = 'bg-gray-200 px-3 py-1 rounded mt-2';
+                labelButton.textContent = label;
+                labelButton.onclick = () => filterByLabel(label);
+                labelFiltersDiv.appendChild(labelButton);
+            });
+        }
+
+        // Initialize the board on page load
+        initializeBoard();
+    </script>
+</body>
+</html>
